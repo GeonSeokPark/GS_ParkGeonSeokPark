@@ -21,6 +21,8 @@ class LoRAAffine(nn.Module):
         self.scale = float(scale)
         nn.init.normal_(self.down.weight, std=1.0 / rank)
         nn.init.zeros_(self.up.weight)
+        self.down.to(base.weight)
+        self.up.to(base.weight)
 
     def forward(self, x):
         return self.base(x) + self.up(self.down(x)) * self.scale

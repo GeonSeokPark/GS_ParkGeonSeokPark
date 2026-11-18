@@ -1,0 +1,1 @@
+"""Local DeepProtect browser interface."""

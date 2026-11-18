@@ -68,7 +68,7 @@ class IRSEBlock(nn.Module):
 
 
 class ArcFaceIRSE50(nn.Module):
-    def __init__(self):
+    def __init__(self, affine=False):
         super().__init__()
         self.input_layer = nn.Sequential(
             nn.Conv2d(3, 64, 3, 1, 1, bias=False), nn.BatchNorm2d(64), nn.PReLU(64)
@@ -82,7 +82,7 @@ class ArcFaceIRSE50(nn.Module):
             nn.Dropout(0.4),
             nn.Flatten(),
             nn.Linear(512 * 7 * 7, 512),
-            nn.BatchNorm1d(512, affine=False),
+            nn.BatchNorm1d(512, affine=affine),
         )
 
     def forward(self, x):
@@ -117,15 +117,10 @@ def load_arcface(path: Path, device: str = "cuda"):
     if isinstance(payload, nn.Module):
         model = payload
     else:
-        model = ArcFaceIRSE50()
         state = _unwrap_state_dict(payload)
-        missing, unexpected = model.load_state_dict(state, strict=False)
-        if len(missing) > 20:
-            raise RuntimeError(
-                "ArcFace checkpoint did not match IR-SE-50. "
-                f"Missing {len(missing)} parameters and unexpected {len(unexpected)}."
-            )
-    return model.to(device).eval()
+        model = ArcFaceIRSE50(affine="output_layer.4.weight" in state)
+        model.load_state_dict(state, strict=True)
+    return model.to(device).eval().requires_grad_(False)
 
 
 def arcface_input(image_01):

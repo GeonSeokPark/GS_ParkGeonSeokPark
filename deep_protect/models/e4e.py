@@ -24,9 +24,11 @@ class E4EEncoder:
         opts["batch_size"] = 1
         opts["checkpoint_path"] = str(checkpoint)
         opts["device"] = device
-        self.model = pSp(Namespace(**opts)).to(device).eval()
+        self.model = pSp(Namespace(**opts)).eval()
         for parameter in self.model.parameters():
             parameter.requires_grad_(False)
+        # DeepProtect uses the W+ code; the FFHQ ADA generator renders it.
+        self.model.encoder.to(device)
         self.device = device
 
     @torch.no_grad()
@@ -37,7 +39,9 @@ class E4EEncoder:
             image_01, size=(256, 256), mode="bilinear", align_corners=False
         )
         image = image_256 * 2.0 - 1.0
-        _, latents = self.model(
-            image, randomize_noise=False, return_latents=True, resize=False, input_code=False
-        )
-        return latents
+        codes = self.model.encoder(image)
+        if self.model.opts.start_from_latent_avg:
+            codes = codes + self.model.latent_avg
+        if codes.ndim != 3 or codes.shape[1:] != (18, 512):
+            raise ValueError(f"Expected FFHQ W+ [N, 18, 512], got {tuple(codes.shape)}")
+        return codes

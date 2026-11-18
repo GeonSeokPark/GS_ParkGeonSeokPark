@@ -4,6 +4,7 @@
 import argparse
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -48,6 +49,8 @@ def main():
     args = parse_args()
     seed_everything(42)
     device = resolve_device(args.device)
+    if args.batch_size < 1 or args.max_identities < 2:
+        raise ValueError("Use batch-size >= 1 and max-identities >= 2.")
     paths = gallery_images(args.images, args.max_identities)
     if len(paths) < 2:
         raise RuntimeError("At least two gallery identities are required.")
@@ -66,7 +69,11 @@ def main():
         names.extend(str(path) for path in batch_paths)
         print(f"[{min(start + len(batch_paths), len(paths))}/{len(paths)}]")
     bank = FeatureBank(torch.cat(latents), torch.cat(clips), torch.cat(ids), names)
-    save_feature_bank(args.output, bank)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(dir=args.output.parent) as staging:
+        pending = Path(staging) / args.output.name
+        save_feature_bank(pending, bank)
+        pending.replace(args.output)
     print(f"Saved {bank.size} identities to {args.output}")
 
 

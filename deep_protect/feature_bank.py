@@ -20,10 +20,17 @@ class FeatureBank:
     def __post_init__(self):
         if self.latents.ndim != 3 or self.latents.shape[1:] != (18, 512):
             raise ValueError(f"latents must have shape [N, 18, 512], got {tuple(self.latents.shape)}")
-        if self.clip_features.shape[0] != self.latents.shape[0]:
-            raise ValueError("latents and clip_features must have the same N.")
+        if self.clip_features.shape != (self.latents.shape[0], 512):
+            raise ValueError("clip_features must have shape [N, 512] for FaRL ViT-B/16.")
         if self.id_features.shape != (self.latents.shape[0], 512):
             raise ValueError("id_features must have shape [N, 512].")
+        for label, values in (("latents", self.latents), ("clip_features", self.clip_features),
+                              ("id_features", self.id_features)):
+            if not torch.isfinite(values).all():
+                raise ValueError(f"{label} contains non-finite values.")
+        for label, values in (("clip_features", self.clip_features), ("id_features", self.id_features)):
+            if (values.float().norm(dim=-1) <= 1e-8).any():
+                raise ValueError(f"{label} contains an empty embedding.")
         self.latents = self.latents.float().contiguous()
         self.clip_features = unit_normalize(self.clip_features.float())
         self.id_features = unit_normalize(self.id_features.float())
@@ -94,7 +101,7 @@ def save_feature_bank(path: Path, bank: FeatureBank) -> None:
             handle.create_dataset("clip_features", data=bank.clip_features.cpu().numpy(), compression="gzip")
             handle.create_dataset("id_features", data=bank.id_features.cpu().numpy(), compression="gzip")
             if bank.names is not None:
-                handle.create_dataset("names", data=np.asarray(bank.names, dtype="S"))
+                handle.create_dataset("names", data=bank.names, dtype=h5py.string_dtype("utf-8"))
     elif path.suffix.lower() == ".npz":
         values = dict(
             latents=bank.latents.cpu().numpy(),

@@ -1,5 +1,7 @@
 # DeepProtect: Proactive Face-Swapping Defense Using Identity Blending and Attribute Distortion
 
+**Windows 노트북에서 실험** · [설치와 실행](README-LAPTOP.ko.md) · [로컬 테스트 페이지 사용법](web_app/README.md)
+
 This directory is an independent, runnable implementation of:
 
 > Eungi Lee, Seung-hyeok Back, Hyung-Il Kim, and Seok Bong Yoo, “DeepProtect: Proactive Face-Swapping Defense using Identity Blending and Attribute Distortion.” **IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2026.**
@@ -211,3 +213,5 @@ The paper reports the following headline combined-method results: on CelebA-HQ, 
   year={2026}
 }
 ```
+
+For setup, checkpoint sources and profiling commands, see the [Korean execution guide](README.ko.md). See the [Windows installation checks](README-LAPTOP.ko.md#검증-범위) for the tested environment.

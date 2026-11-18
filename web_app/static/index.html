@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>DeepProtect · 사진 보호 테스트</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="shell topbar">
+    <a class="brand" href="/" aria-label="DeepProtect 홈"><span class="brand-mark" aria-hidden="true"></span>DeepProtect</a>
+    <span class="local"><span></span> 로컬 GPU</span>
+  </header>
+  <main class="shell">
+    <div class="intro">
+      <h1>사진 보호 테스트</h1>
+      <p>사진 한 장으로 보호 이미지를 만들고 원본과 비교하세요. 모든 계산은 이 PC에서 실행됩니다.</p>
+    </div>
+
+    <div class="workspace">
+      <section class="card setup" aria-labelledby="upload-title">
+        <div class="card-heading"><h2 id="upload-title">입력 사진</h2></div>
+        <form id="upload-form">
+          <input id="photo" class="sr-only" type="file" accept="image/png,image/jpeg,.jpg,.jpeg,.png">
+          <label class="dropzone" id="dropzone" for="photo" tabindex="0">
+            <span class="upload-symbol" aria-hidden="true">↑</span>
+            <strong>사진 선택 또는 끌어오기</strong>
+            <span id="file-name">JPG · PNG · 최대 25 MB</span>
+          </label>
+        </form>
+        <figure id="alignment" hidden>
+          <img id="aligned" alt="FFHQ 방식으로 정렬한 입력 사진">
+          <figcaption>정렬된 입력 <span>1024 × 1024</span></figcaption>
+        </figure>
+        <button id="start" class="button primary" type="button" disabled>보호 이미지 만들기 <span aria-hidden="true">→</span></button>
+        <p id="status" class="status" role="status" aria-live="polite">사진을 선택하면 얼굴 정렬을 시작합니다.</p>
+        <a id="error-log" class="link" hidden>실행 로그 보기</a>
+      </section>
+
+      <div class="results">
+        <section class="card settings-card" aria-labelledby="settings-title">
+          <div class="card-heading settings-heading">
+            <h2 id="settings-title">변환 설정</h2>
+            <span id="preset-name" class="muted">현재 튜닝값</span>
+          </div>
+          <div class="presets" role="group" aria-label="설정 프리셋">
+            <button id="preset-tuned" class="preset" type="button" aria-pressed="true">이번 튜닝</button>
+            <button id="preset-paper" class="preset" type="button" aria-pressed="false">공개 구현 기본값</button>
+          </div>
+          <p id="settings-message" class="result-note" role="status">설정을 불러오는 중입니다.</p>
+          <fieldset id="settings-fields" disabled aria-label="변환 파라미터"></fieldset>
+        </section>
+        <section class="card progress-card" aria-labelledby="progress-title">
+          <div class="card-heading"><h2 id="progress-title">처리 단계</h2><span id="elapsed" class="mono" hidden></span></div>
+          <ol id="stages" class="stages">
+            <li data-stage="align"><span class="step-icon" aria-hidden="true"></span><span>얼굴 정렬</span></li>
+            <li data-stage="reconstruct"><span class="step-icon" aria-hidden="true"></span><span>혼합·재구성</span></li>
+            <li data-stage="refine"><span class="step-icon" aria-hidden="true"></span><span id="refine-label">노이즈 보정</span></li>
+            <li data-stage="sweep"><span class="step-icon" aria-hidden="true"></span><span>워터마크 비교</span></li>
+          </ol>
+          <div id="progress-detail" hidden>
+            <label for="progress" id="progress-label">진행 중</label>
+            <progress id="progress" value="0" max="1"></progress>
+          </div>
+        </section>
+
+        <section class="card comparison-card" aria-labelledby="comparison-title">
+          <div class="card-heading"><h2 id="comparison-title">원본과 보호 이미지</h2><span class="muted mono">1024 × 1024</span></div>
+          <div id="empty" class="empty">
+            <div class="empty-icon" aria-hidden="true"><i></i><i></i></div>
+            <p>변환을 완료하면 두 이미지를 비교할 수 있습니다.</p>
+          </div>
+          <div id="result" hidden>
+            <p id="selection-info" class="selection" role="status"></p>
+            <div class="compare-wrap">
+              <div id="comparator" class="comparator">
+                <img id="compare-source" alt="정렬된 원본">
+                <img id="compare-protected" alt="변환한 보호 이미지">
+                <div class="compare-divider" id="divider" aria-hidden="true"><span>↔</span></div>
+                <span class="image-label label-left">보호 이미지</span>
+                <span class="image-label label-right">정렬 원본</span>
+              </div>
+              <label for="split" class="sr-only">보호 이미지 표시 범위</label>
+              <input type="range" id="split" min="0" max="100" value="50" aria-label="보호 이미지 표시 범위">
+            </div>
+            <div class="metric-grid" id="metrics"></div>
+            <div id="identity" class="identity"></div>
+            <p id="watermark-delta" class="result-note" hidden></p>
+            <p id="cutoff-note" class="result-note">CosSim은 같은 로컬 ArcFace 모델의 점수입니다.</p>
+            <div class="actions">
+              <a id="download-png" class="button primary" download="protected.png"><span id="download-label">보호 PNG 다운로드</span> <span aria-hidden="true">↓</span></a>
+              <a id="download-json" class="button secondary" download="metrics.json">측정값 JSON</a>
+              <a id="previous-result" class="button secondary" hidden>이전 실행 열기</a>
+            </div>
+            <details id="alternatives">
+              <summary id="candidate-summary">워터마크 후보</summary>
+              <div class="table-scroll">
+                <table aria-label="워터마크 후보별 측정값">
+                  <thead><tr><th scope="col">프롬프트</th><th scope="col">ε</th><th scope="col">횟수</th><th scope="col">SSIM</th><th scope="col">JPEG 85 CosSim</th><th scope="col">미리보기</th></tr></thead>
+                  <tbody id="candidate-rows"></tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

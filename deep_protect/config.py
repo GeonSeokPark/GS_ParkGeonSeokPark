@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from math import isfinite
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -28,6 +29,11 @@ class DeepProtectConfig:
     middle_style_indices: Tuple[int, ...] = (2, 3, 4, 5, 6)
     lora_blocks: Tuple[str, ...] = ("b16", "b32")
     lora_rank: int = 8
+    trainable_conv_blocks: Tuple[str, ...] = ()
+    conv_learning_rate: float = 1e-4
+    cosine_decay: bool = False
+    reconstruction_l2_weight: float = 1.0
+    reconstruction_ssim_weight: float = 0.0
     lora_scale: float = 1.0
     learning_rate: float = 3e-4
     identity_lock_weight: float = 0.1
@@ -53,9 +59,14 @@ class DeepProtectConfig:
             raise ValueError("order_regularization_weight must be non-negative.")
         if self.lora_rank <= 0:
             raise ValueError("lora_rank must be positive.")
-        if self.learning_rate <= 0:
+        if not (isfinite(self.learning_rate) and self.learning_rate > 0):
             raise ValueError("learning_rate must be positive.")
-        if self.identity_lock_weight < 0:
+        if not (isfinite(self.conv_learning_rate) and self.conv_learning_rate > 0):
+            raise ValueError("conv_learning_rate must be positive.")
+        loss_weights = (self.reconstruction_l2_weight, self.reconstruction_ssim_weight)
+        if not all(isfinite(value) and value >= 0 for value in loss_weights):
+            raise ValueError("Reconstruction loss weights must be non-negative.")
+        if not (isfinite(self.identity_lock_weight) and self.identity_lock_weight >= 0):
             raise ValueError("identity_lock_weight must be non-negative.")
         if self.max_optimization_steps <= 0:
             raise ValueError("max_optimization_steps must be positive.")
@@ -66,10 +77,10 @@ class DeepProtectConfig:
 
 
 def resolve_device(requested: str) -> str:
-    """Resolve ``cuda`` to a usable device while keeping CPU smoke tests easy."""
+    """Validate the requested device without silently selecting another one."""
 
     import torch
 
     if requested.startswith("cuda") and not torch.cuda.is_available():
-        return "cpu"
+        raise RuntimeError("CUDA is unavailable. Use --device cpu for a CPU smoke test.")
     return requested

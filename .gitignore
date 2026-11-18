@@ -10,3 +10,6 @@ pretrained_models/
 *.pth
 *.pkl
 
+/.venv/
+/.runtime/
+/data/
