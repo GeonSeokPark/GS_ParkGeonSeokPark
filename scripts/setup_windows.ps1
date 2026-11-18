@@ -50,9 +50,17 @@ function Install-Alignment {
                 '6283f25f8142606d86e81a43c7103b5d4f1d5c2027e3f9d7326eff23b33930d8'
             Invoke-Checked 'tar.exe' @('-xf', $archive, '-C', $Runtime, 'Library/bin/micromamba.exe')
         }
-        Invoke-Checked $mamba @('create', '--yes', '--root-prefix', (Join-Path $Runtime 'mamba'),
-            '--prefix', $prefix, '--override-channels', '-c', 'conda-forge',
-            'python=3.11', 'dlib=20.0.1=cpu_py311*', 'libblas=*=*openblas', 'pillow', 'scipy')
+        $mambaRoot = Join-Path $Runtime 'mamba'
+        $previousPackageDirs = $env:CONDA_PKGS_DIRS
+        try {
+            $env:CONDA_PKGS_DIRS = Join-Path $mambaRoot 'pkgs'
+            Invoke-Checked $mamba @('create', '--yes', '--no-rc', '--always-copy', '--root-prefix', $mambaRoot,
+                '--prefix', $prefix, '--override-channels', '-c', 'conda-forge',
+                'python=3.11', 'dlib=20.0.1=cpu_py311*', 'libblas=*=*openblas', 'pillow', 'scipy')
+        }
+        finally {
+            $env:CONDA_PKGS_DIRS = $previousPackageDirs
+        }
     }
 
     $previousPath = $env:Path
